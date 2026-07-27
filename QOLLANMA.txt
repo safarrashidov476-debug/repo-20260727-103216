@@ -1,0 +1,91 @@
+TELEGRAM (DrKLO/Telegram) - AVTOMATIK BUILD QO'LLANMASI
+=========================================================
+
+MUHIM: BU LOYIHA RHVOICE'DAN FARQLI RAVISHDA SIZDAN 2 TA
+QO'SHIMCHA NARSA TALAB QILADI:
+
+1) api_id va api_hash
+   - https://my.telegram.org saytiga kiring (o'z Telegram raqamingiz bilan)
+   - "API development tools" bo'limidan yangi ilova yarating
+   - Sizga API_ID (raqam) va API_HASH (harf-raqamli qator) beriladi
+   - Shu ikkitasini "api_config.txt" nomli faylga shu formatda yozing:
+
+     API_ID=123456
+     API_HASH=abcdef0123456789abcdef0123456789
+
+   - Bu faylni repo ildiziga yuklang
+
+2) google-services.json (IXTIYORIY - push xabarnomalari uchun)
+   - Agar push-xabarnomalar (bildirishnomalar) kerak bo'lmasa, bu qadamni
+     o'tkazib yuborsangiz ham bo'ladi - ilova baribir ishlaydi, faqat
+     push-xabarnoma funksiyasi cheklangan bo'lishi mumkin
+   - Agar kerak bo'lsa: Firebase konsolida (console.firebase.google.com)
+     yangi loyiha yaratib, Android ilova qo'shib, google-services.json
+     faylini yuklab, repo ildiziga qo'ying
+
+QOLGAN FAYLLAR (BU ZIP ICHIDA):
+- patch_dialogcell.py       -> Nomlanish tartibini avtomatik tuzatadi
+- patch_sharebutton.py      -> Ulashish tugmasini TalkBack'dan yashiradi
+- .github/workflows/build-apk.yml -> Avtomatik build workflow
+
+YUKLASH KERAK BO'LGAN FAYLLAR (repo ildiziga):
+- api_config.txt (albatta kerak)
+- google-services.json (ixtiyoriy)
+- patch_dialogcell.py
+- patch_sharebutton.py
+- .github/ papkasi (workflow bilan)
+
+=========================================================
+QO'LDA QO'SHISH KERAK BO'LGAN IKKI O'ZGARISH
+(bular avtomatik emas, chunki aniq matn joyi tasdiqlanmagan)
+=========================================================
+
+A) FAYL YUKLASH FOIZINI E'LON QILISH
+
+Fayl: TMessagesProj/src/main/java/org/telegram/ui/Cells/ChatMessageCell.java
+
+"onProgressDownload" va "onProgressUpload" metodlarini toping.
+Har birining ichiga, boshida shuni qo'shing:
+
+    private int lastAnnouncedProgressPercent = -1;
+    // (bu qatorni klass ichiga, metoddan tashqariga qo'shing - bir marta)
+
+Va har bir metod ichida (progress % hisoblangandan keyin):
+
+    int percent = (int) (progress * 100);
+    if (percent - lastAnnouncedProgressPercent >= 10 || percent == 100) {
+        lastAnnouncedProgressPercent = percent;
+        sendAccessibilityEventForVirtualView(
+            MessageAccessibilityNodeProvider.HOST_VIEW_ID,
+            AccessibilityEvent.TYPE_ANNOUNCEMENT,
+            percent + " foiz"
+        );
+    }
+
+B) "MUHOKAMANI KO'RISH" MENYU BANDINI KANAL POSTLARIGA QO'SHISH
+
+Fayl: TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
+
+Shu qatorni qidiring (2 marta uchraydi, ikkalasiga ham qo'shing):
+
+    options.add(OPTION_VIEW_REPLIES_OR_THREAD);
+
+Shu qatordan keyin, yopilish qavsidan ({}) so'ng, shuni qo'shing:
+
+    if (!isThreadChat() && chatMode != MODE_SCHEDULED && currentChat != null
+        && ChatObject.isChannel(currentChat) && !currentChat.megagroup
+        && currentChat.has_link && primaryMessage != null) {
+        items.add(LocaleController.getString(R.string.ViewDiscussion));
+        options.add(OPTION_VIEW_REPLIES_OR_THREAD);
+        icons.add(R.drawable.msg_viewreplies);
+    }
+
+=========================================================
+BUILD VARIANTI HAQIDA ESLATMA
+=========================================================
+Workflow "assembleAfatRelease" buyrug'ini ishlatadi. Agar bu
+xato bersa, Actions logida "assemble" so'zi bilan boshlanadigan
+variant nomlarini qidirib, workflow faylidagi shu qatorni
+moslashtiring:
+
+    run: ./gradlew assembleAfatRelease --stacktrace
